@@ -1,53 +1,43 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 import requests
-from datetime import datetime, timedelta
-from dotenv import load_dotenv
-import os
-
-# 加载 .env 文件
-load_dotenv()
+import logging
 
 app = Flask(__name__)
 
-class TokenManager:
-    def __init__(self, app_id: str, app_secret: str):
-        self.app_id = app_id
-        self.app_secret = app_secret
-        self.access_token = None
-        self.token_expires_at = None
+# 配置日志
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-    def ensure_access_token(self) -> dict[str, any]:
-        """确保获取有效的access_token"""
-        if self.access_token and self.token_expires_at and self.token_expires_at > datetime.now() + timedelta(minutes=5):
-            return self.access_token
-
-        url = f"https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid={self.app_id}&secret={self.app_secret}"
-        response = requests.get(url)
-        data = response.json()
-        
-        if 'access_token' not in data:
-            raise ValueError(f"获取access_token失败: {data}")
-        
-        self.access_token = data['access_token']
-        self.token_expires_at = datetime.now() + timedelta(seconds=data['expires_in'])
-        return data
-
-# 从环境变量获取配置
-app_id = os.getenv('WEIXIN_APP_ID')
-app_secret = os.getenv('WEIXIN_APP_SECRET')
-
-if not app_id or not app_secret:
-    raise ValueError("请在 .env 文件中设置 WEIXIN_APP_ID 和 WEIXIN_APP_SECRET")
-
-token_manager = TokenManager(app_id, app_secret)
+def get_weixin_token(app_id: str, app_secret: str) -> str:
+    """获取微信 access_token"""
+    url = f"https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid={app_id}&secret={app_secret}"
+    response = requests.get(url)
+    data = response.json()
+    
+    if 'access_token' not in data:
+        raise ValueError("Token acquisition failed")
+    
+    return data['access_token']
 
 @app.route('/access_token', methods=['GET'])
 def get_access_token():
     try:
-        data = token_manager.ensure_access_token()
-        return jsonify(data)
+        # 从请求参数获取凭证
+        app_id = request.args.get('app_id')
+        app_secret = request.args.get('app_secret')
+        
+        # 验证参数
+        if not app_id or not app_secret:
+            return jsonify({"error": "Internal server error"}), 500
+        
+        # 获取新 token
+        token = get_weixin_token(app_id, app_secret)
+        return jsonify({"access_token": token})
+        
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        # 记录错误日志，但不返回具体错误信息
+        logger.error(f"Error: {str(e)}")
+        return jsonify({"error": "Internal server error"}), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000) 
