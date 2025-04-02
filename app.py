@@ -16,9 +16,9 @@ class TokenManager:
         self.access_token = None
         self.token_expires_at = None
 
-    def ensure_access_token(self) -> str:
+    def ensure_access_token(self) -> dict[str, any]:
         """确保获取有效的access_token"""
-        if self.access_token and self.token_expires_at and self.token_expires_at > datetime.now() + timedelta(minutes=1):
+        if self.access_token and self.token_expires_at and self.token_expires_at > datetime.now() + timedelta(minutes=5):
             return self.access_token
 
         url = f"https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid={self.app_id}&secret={self.app_secret}"
@@ -30,7 +30,7 @@ class TokenManager:
         
         self.access_token = data['access_token']
         self.token_expires_at = datetime.now() + timedelta(seconds=data['expires_in'])
-        return self.access_token
+        return data
 
 # 从环境变量获取配置
 app_id = os.getenv('WEIXIN_APP_ID')
@@ -44,8 +44,8 @@ token_manager = TokenManager(app_id, app_secret)
 @app.route('/access_token', methods=['GET'])
 def get_access_token():
     try:
-        token = token_manager.ensure_access_token()
-        return jsonify({"access_token": token})
+        data = token_manager.ensure_access_token()
+        return jsonify(data)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
