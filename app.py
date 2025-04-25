@@ -15,6 +15,7 @@ def get_weixin_token(app_id: str, app_secret: str) -> str:
     data = response.json()
     
     if 'access_token' not in data:
+        logger.error(f"Token acquisition failed: {data}")
         raise ValueError("Token acquisition failed")
     
     return data['access_token']
