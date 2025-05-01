@@ -38,7 +38,7 @@ def get_access_token():
     except Exception as e:
         # 记录错误日志，但不返回具体错误信息
         logger.error(f"Error: {str(e)}")
-        return jsonify({"error": "Internal server error"}), 500
+        return jsonify({"error": f"Internal server error: {str(e)}"}), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000) 
